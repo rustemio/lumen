@@ -445,3 +445,42 @@ body.has-badge { --badge: 58px; }
   .tabs { bottom: calc(max(10px, env(safe-area-inset-bottom) - 14px) + var(--badge)) !important; }
   #app { padding-bottom: calc(76px + var(--badge) + max(10px, env(safe-area-inset-bottom) - 14px)) !important; }
 }
+
+/* ---------------------------------------------------------------------------------------
+   Gentle motion, for a dark room: nothing pops. States fade, panels drift in, the app opens
+   out of black. With reduced motion only the fades stay, without movement. */
+:root { --ease: cubic-bezier(.25, .1, .25, 1); --t-fast: .35s; --t-slow: .55s; }
+
+button, .pal, .seg button, .tabs button, .mini, .more-btn, .blackout, .help-btn, .name-in, select {
+  transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease),
+    box-shadow var(--t-slow) var(--ease), opacity var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
+}
+.toggle i, .toggle i::after { transition: background-color .4s var(--ease), transform .4s var(--ease); }
+button:active { transform: scale(.97); }
+
+/* Mode cards: the colour of a chosen mode fades in on a layer underneath instead of switching. */
+.seg.modes button { position: relative; isolation: isolate; overflow: hidden; }
+.seg.modes button::before { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; opacity: 0; background: var(--mode-bg, rgba(255, 255, 255, .2)); transition: opacity var(--t-slow) var(--ease); }
+.seg.modes button[aria-pressed="true"]::before { opacity: 1; }
+.seg.modes button[data-v][aria-pressed="true"] { background: var(--glass); color: #fff; animation: none; }
+.seg.modes button[data-v="flow"] { --mode-bg: linear-gradient(120deg, #ff9a4a, #ff5e7a, #9b6bff, #2a7bff, #1fd1c1); }
+.seg.modes button[data-v="pulse"] { --mode-bg: #ff3a6e; }
+.seg.modes button[data-v="artist"] { --mode-bg: linear-gradient(120deg, #ff9a4a, #ff5e7a, #9b6bff); }
+.seg.modes button[data-v="spark"] { --mode-bg: radial-gradient(circle at 86% 26%, rgba(255, 255, 255, .85) 0 3px, rgba(255, 255, 255, .25) 6px, transparent 16px), linear-gradient(120deg, #ff1fa2, #3a5bff); }
+.seg.modes button[data-v="show"] { --mode-bg: linear-gradient(90deg, #ff1fa2, #7a22ff 55%, #25e8ff); }
+.seg.modes button[data-v="show"][aria-pressed="true"] { -webkit-text-fill-color: #fff; color: #fff; }
+
+/* Things that appear fade in rather than pop. */
+@keyframes lumenIn { from { opacity: 0; transform: translateY(6px); } }
+@keyframes lumenFade { from { opacity: 0; } }
+@keyframes lumenOpen { from { opacity: 0; } }
+#app { animation: lumenOpen 1.1s var(--ease) both; }
+.tab:not([hidden]), .box:not([hidden]), body.more .adv, .status:not(:empty), .log:not(:empty) { animation: lumenIn .45s var(--ease) both; }
+.help[open] { animation: lumenIn .45s var(--ease) both; }
+.help[open]::backdrop { animation: lumenFade .45s var(--ease) both; }
+.reading b, .stage .now { transition: color .6s var(--ease); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tab:not([hidden]), .box:not([hidden]), body.more .adv, .status:not(:empty), .log:not(:empty), .help[open] { animation-name: lumenFade; }
+  button:active { transform: none; }
+}

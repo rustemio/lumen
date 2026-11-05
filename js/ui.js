@@ -527,7 +527,12 @@ export class UI {
       if (s.mode === 'artist' && info.harmony) text = `Artist · ${info.harmony}`;
       if (s.mode === 'show' && info.look) text = `${LOOK_LABELS[info.look] || info.look}${info.mood === 'break' ? ' · break' : ''} · ${PALETTES[s.palette === 'auto' ? info.palette : s.palette]?.label || ''}`;
       if (s.blackout) text = 'Blackout';
-      this.nowLook.textContent = text;
+      if (this.nowLook.textContent !== text) {
+        this.nowLook.textContent = text;
+        this.nowLook.style.animation = 'none';
+        void this.nowLook.offsetWidth;
+        this.nowLook.style.animation = 'lumenFade .6s ease both';
+      }
       const ms = Math.round(lights.measuredLatency());
       this.measured.textContent = ms ? `Use measured: ${ms} ms` : 'Measuring the delay…';
       this.measured.disabled = !ms;

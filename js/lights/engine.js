@@ -8,6 +8,8 @@ import { Voice, Onset, runMode, resolvePalette, MODES, PALETTES } from './modes.
 import { hexToRgb, kelvinToRgb, mixRgb, clamp01 } from './color.js';
 
 const STORE_KEY = 'lumen.v1';
+const LOOK_FADE = 1.2;     // seconds to crossfade into a new mode or palette
+const LEVEL_GLIDE = 0.3;   // seconds for brightness, blackout and on/off to settle
 
 export const DEFAULTS = {
   mode: 'flow', palette: 'auto',
@@ -71,6 +73,11 @@ export class LightingEngine {
     this.predKey = null;
     this.artistCtl = { next: false, every: 60 };
     this.out = this.ids.map(() => ({ on: false, rgb: [0, 0, 0], bri: 0, white: false, kelvin: 3000 }));
+    this.final = this.ids.map(() => ({ rgb: [0, 0, 0], bri: 0 }));
+    this.lit = this.ids.map(() => ({ on: false, rgb: [0, 0, 0], bri: 0 }));
+    this.lampGain = this.ids.map(() => 0);
+    this.gain = 0;          // starts dark and fades up, so opening the app never flashes the room
+    this.look = '';
     this.status = Object.fromEntries(this.ids.map((id) => [id, { state: 'disconnected', message: '', retries: 0, retryAt: 0 }]));
     this.scheduler = new Scheduler(this.liveLimits());
     this.reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -191,15 +198,37 @@ export class LightingEngine {
 
     const release = Math.max(0.001, s.smoothing / 1000);
     const k = 1 - Math.exp(-dt / release);
+    // Changing mode or palette crossfades from the old light to the new one, and brightness,
+    // blackout and a lamp's on/off glide rather than jump, so nothing snaps in a dark room.
+    const look = `${s.mode}|${s.palette}`;
+    if (look !== this.look) {
+      if (this.look) { this.fadeFrom = this.final.map((o) => ({ rgb: [...o.rgb], bri: o.bri })); this.fadeAt = this.t; }
+      this.look = look;
+    }
+    let fk = 1;
+    if (this.fadeFrom) {
+      const x = Math.min(1, (this.t - this.fadeAt) / LOOK_FADE);
+      fk = x * x * (3 - 2 * x);
+      if (x >= 1) this.fadeFrom = null;
+    }
+    const glide = 1 - Math.exp(-dt / LEVEL_GLIDE);
+    this.gain += ((s.blackout ? 0 : s.master / 100) - this.gain) * glide;
     this.ids.forEach((id, i) => {
       const want = this.voices[s.group ? 0 : i].out();
       const cur = this.out[i];
       if (want.bri >= cur.bri) { cur.bri = want.bri; cur.rgb = [...want.rgb]; }
       else { cur.bri += (want.bri - cur.bri) * k; cur.rgb = mixRgb(cur.rgb, want.rgb, k); }
       const lamp = s.lamps[i];
+      this.lampGain[i] += ((lamp.on ? 1 : 0) - this.lampGain[i]) * glide;
+      const from = this.fadeFrom?.[i];
+      const rgb = from ? mixRgb(from.rgb, cur.rgb, fk) : [...cur.rgb];
+      const raw = from ? from.bri + (cur.bri - from.bri) * fk : cur.bri;
+      this.final[i] = { rgb, bri: raw };
+      const bri = clamp01(raw * this.gain * this.lampGain[i]);
+      const on = bri > 0.002 || (lamp.on && !s.blackout);
       const white = s.mode === 'manual' && s.manual.white;
-      const bri = s.blackout || !lamp.on ? 0 : clamp01(cur.bri * (s.master / 100));
-      this.scheduler.want(id, { on: lamp.on && !s.blackout, rgb: [...cur.rgb], bri, white, kelvin: s.manual.kelvin });
+      this.lit[i] = { on, rgb, bri };
+      this.scheduler.want(id, { on, rgb, bri, white, kelvin: s.manual.kelvin });
       this.status[id].sentBri = bri;
     });
 
@@ -230,11 +259,7 @@ export class LightingEngine {
   }
 
   // The state the engine wants right now, before the radio.
-  wanted(i) {
-    const o = this.out[i];
-    const s = this.s;
-    return { on: s.lamps[i].on && !s.blackout, rgb: o.rgb, bri: s.blackout || !s.lamps[i].on ? 0 : o.bri * (s.master / 100) };
-  }
+  wanted(i) { return this.lit[i]; }
 
   stats(i) {
     const id = this.ids[i];
