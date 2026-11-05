@@ -439,3 +439,9 @@ body.has-badge { --badge: 58px; }
 }
 .reading b { transition: color .4s; }
 .reading b.guess { color: var(--ink-3); }
+
+/* The tab bar sits as low as the system's own floating bars: just above the home indicator. */
+@media (max-width: 900px) {
+  .tabs { bottom: calc(max(10px, env(safe-area-inset-bottom) - 14px) + var(--badge)) !important; }
+  #app { padding-bottom: calc(76px + var(--badge) + max(10px, env(safe-area-inset-bottom) - 14px)) !important; }
+}
