@@ -2,7 +2,7 @@
 // Keeps a copy of the app on the device, so after one visit it opens with no internet.
 // The copy is used first and refreshed in the background, so a new version shows on the next launch.
 
-const CACHE = 'lumen-0.6.0';
+const CACHE = 'lumen-0.6.1';
 const FILES = [
   './',
   './index.html',

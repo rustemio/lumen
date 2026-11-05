@@ -437,3 +437,5 @@ body.has-badge { --badge: 58px; }
 @media (min-width: 901px) {
   body.has-badge .panel { padding-bottom: 90px; }
 }
+.reading b { transition: color .4s; }
+.reading b.guess { color: var(--ink-3); }

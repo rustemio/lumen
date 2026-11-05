@@ -517,7 +517,9 @@ export class UI {
     const now = performance.now();
     if (now - (this.slowAt || 0) > 250) {
       this.slowAt = now;
-      this.bpm.textContent = clock.bpm ? `${Math.round(clock.bpm)} BPM${clock.usable ? '' : '?'}` : '— BPM';
+      this.bpm.textContent = clock.bpm ? `${Math.round(clock.bpm)} BPM` : '— BPM';
+      // Dim while the tempo is a guess, bright once the beats arrive steadily enough to lock.
+      this.bpm.classList.toggle('guess', !clock.usable);
       this.bpm.title = clock.label;
       const info = lights.showInfo();
       const s = this.s;
